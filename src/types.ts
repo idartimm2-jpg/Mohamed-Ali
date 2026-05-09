@@ -6,6 +6,14 @@ export type PostIdea = {
   caption: string;
 };
 
+export type HistoryItem = {
+  id: string;
+  date: string;
+  type: 'content' | 'growth';
+  title: string;
+  data: any;
+};
+
 declare global {
   interface Window {
     aistudio?: {

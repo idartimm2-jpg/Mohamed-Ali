@@ -9,3 +9,20 @@
 body {
   font-family: var(--font-sans);
 }
+
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  .prose-invert {
+    --tw-prose-body: black !important;
+    --tw-prose-headings: black !important;
+    --tw-prose-bold: black !important;
+    --tw-prose-lists: black !important;
+    --tw-prose-strong: black !important;
+  }
+  @page {
+    margin: 1.5cm;
+  }
+}

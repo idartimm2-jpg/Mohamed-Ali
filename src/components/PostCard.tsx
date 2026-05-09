@@ -5,11 +5,37 @@ import Markdown from 'react-markdown';
 import { motion, AnimatePresence } from 'motion/react';
 import { PostIdea } from '../types';
 
-export function PostCard({ idea, index, brief, dialect, tone }: { idea: PostIdea, index: number, brief: string, dialect: string, tone: string }) {
-  const [script, setScript] = useState('');
+interface PostCardProps {
+  idea: PostIdea;
+  index: number;
+  brief: string;
+  dialect: string;
+  tone: string;
+  reelFormat?: string;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
+  script?: string;
+  onScriptChange?: (script: string) => void;
+  imageUrls?: string[];
+  onImageUrlsChange?: (urls: string[]) => void;
+}
+
+export function PostCard({ 
+  idea, 
+  index, 
+  brief, 
+  dialect, 
+  tone, 
+  reelFormat,
+  isSelected, 
+  onToggleSelect,
+  script = '',
+  onScriptChange,
+  imageUrls = [],
+  onImageUrlsChange
+}: PostCardProps) {
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   
   const [productImage, setProductImage] = useState<File | null>(null);
@@ -23,6 +49,10 @@ export function PostCard({ idea, index, brief, dialect, tone }: { idea: PostIdea
   const [logoPosition, setLogoPosition] = useState('أعلى اليمين');
   const [carouselCount, setCarouselCount] = useState(1);
   const [imageMood, setImageMood] = useState('فخم وأنيق (Luxury & Elegant)');
+  const [aspectRatio, setAspectRatio] = useState('1:1');
+  const [customImagePrompt, setCustomImagePrompt] = useState('');
+  const [scriptModel, setScriptModel] = useState('gemini-3-flash-preview');
+  const [imageModel, setImageModel] = useState('gemini-2.5-flash-image');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -42,29 +72,32 @@ export function PostCard({ idea, index, brief, dialect, tone }: { idea: PostIdea
 
   const handleGenerateScript = async () => {
     setIsGeneratingScript(true);
-    setScript('');
+    if (onScriptChange) onScriptChange('');
     try {
       const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
       const ai = new GoogleGenAI({ apiKey: apiKey as string });
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: scriptModel,
         contents: `بناءً على فكرة المنشور التالية للعلامة التجارية (${brief})، قم بكتابة اسكريبت فيديو ريلز (Reels) كتابي فقط لما سيتم قوله (بدون وصف مشاهد بصرية).
 اللهجة: ${dialect}
 الأسلوب: ${tone}
+طريقة التقديم: ${reelFormat || 'تلقائي'}
 الفكرة: ${idea.title} - ${idea.description}
 
+⚠️ **هام جداً: استخدم أسلوب "الكتابة الفيروسية" (Viral Writing) لضمان أقصى قدر من الانتشار والاحتفاظ بالمشاهد (High Retention).**
+
 يجب أن يكون الاسكريبت مقسماً بوضوح إلى:
-1. خطاف (Hook): جملة قوية في البداية لجذب الانتباه.
-2. المحتوى (Body): صلب الموضوع والشرح.
-3. دعوة لاتخاذ إجراء (CTA): طلب تفاعل أو شراء في النهاية.
+1. خطاف فيروسي (Viral Hook): جملة صادمة، مثيرة للفضول، أو تحل مشكلة عميقة في أول 3 ثوانٍ لجذب الانتباه فوراً ومنع المشاهد من التمرير.
+2. المحتوى (Body): صلب الموضوع والشرح بأسلوب سريع الإيقاع (Fast-paced)، جذاب، ويحافظ على انتباه المشاهد في كل ثانية.
+3. دعوة لاتخاذ إجراء (CTA): طلب تفاعل، مشاركة، أو شراء في النهاية بطريقة ذكية ومحفزة.
 
 قم بتنسيق المخرجات باستخدام Markdown لتكون واضحة وسهلة القراءة.
 `,
       });
-      setScript(response.text || '');
+      if (onScriptChange) onScriptChange(response.text || '');
     } catch (err) {
       console.error(err);
-      setScript('حدث خطأ أثناء توليد الاسكريبت.');
+      if (onScriptChange) onScriptChange('حدث خطأ أثناء توليد الاسكريبت.');
     } finally {
       setIsGeneratingScript(false);
     }
@@ -89,7 +122,7 @@ export function PostCard({ idea, index, brief, dialect, tone }: { idea: PostIdea
 
   const handleGenerateImage = async () => {
     setIsGeneratingImage(true);
-    setImageUrls([]);
+    if (onImageUrlsChange) onImageUrlsChange([]);
     try {
       const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
       const ai = new GoogleGenAI({ apiKey: apiKey as string });
@@ -124,16 +157,17 @@ ${hasText ? 'أضف نصوص إعلانية مناسبة داخل الصورة.'
 اللون الأساسي للعلامة التجارية هو: ${brandColor}. اجعل هذا اللون بارزاً في التصميم.
 ${logoImage ? `ضع الشعار المرفق في ${logoPosition}.` : ''}
 ${count > 1 ? `هذه هي الصورة رقم ${i + 1} من سلسلة كاروسيل مكونة من ${count} صور.` : ''}
+${customImagePrompt ? `تعليمات إضافية من المستخدم: ${customImagePrompt}` : ''}
 `;
 
         parts.push({ text: promptText });
 
         const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash-image',
+          model: imageModel,
           contents: { parts },
           config: {
             imageConfig: {
-              aspectRatio: "1:1"
+              aspectRatio: aspectRatio as any
             }
           }
         });
@@ -149,7 +183,7 @@ ${count > 1 ? `هذه هي الصورة رقم ${i + 1} من سلسلة كارو
       if (newUrls.length === 0) {
         throw new Error('لم يتم إرجاع صورة من النموذج.');
       }
-      setImageUrls(newUrls);
+      if (onImageUrlsChange) onImageUrlsChange(newUrls);
     } catch (err) {
       console.error(err);
       alert('حدث خطأ أثناء توليد الصورة.');
@@ -163,33 +197,44 @@ ${count > 1 ? `هذه هي الصورة رقم ${i + 1} من سلسلة كارو
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
-      className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors"
+      data-html2canvas-ignore={!isSelected}
+      className={`bg-white dark:bg-slate-800 rounded-2xl shadow-sm border ${isSelected ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-200 dark:border-slate-700'} overflow-hidden transition-colors print:shadow-none print:border-slate-300 print:break-inside-avoid ${!isSelected ? 'print:hidden' : ''}`}
     >
       <div className="p-6 sm:p-8">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <span className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 font-bold text-sm shrink-0">
+              <span className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 font-bold text-sm shrink-0 print:bg-indigo-100 print:text-indigo-700">
                 {index + 1}
               </span>
-              <h3 className="text-xl font-bold text-slate-800 dark:text-white">{idea.title}</h3>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white print:text-black">{idea.title}</h3>
             </div>
-            <span className="inline-block px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-medium rounded-full mb-4">
+            <span className="inline-block px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-medium rounded-full mb-4 print:bg-slate-100 print:text-slate-800">
               {idea.format}
             </span>
           </div>
+          {onToggleSelect && (
+            <div className="print:hidden shrink-0" data-html2canvas-ignore="true">
+              <input 
+                type="checkbox" 
+                checked={isSelected} 
+                onChange={onToggleSelect} 
+                className="w-6 h-6 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" 
+              />
+            </div>
+          )}
         </div>
         
-        <div className="space-y-4 text-slate-600 dark:text-slate-300">
-          <p className="leading-relaxed"><strong className="text-slate-800 dark:text-white">الوصف:</strong> {idea.description}</p>
-          <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
-            <strong className="text-slate-800 dark:text-white block mb-2">الكابشن المقترح:</strong>
+        <div className="space-y-4 text-slate-600 dark:text-slate-300 print:text-slate-800">
+          <p className="leading-relaxed"><strong className="text-slate-800 dark:text-white print:text-black">الوصف:</strong> {idea.description}</p>
+          <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700 print:bg-slate-50 print:border-slate-200">
+            <strong className="text-slate-800 dark:text-white print:text-black block mb-2">الكابشن المقترح:</strong>
             <p className="whitespace-pre-wrap text-sm leading-relaxed">{idea.caption}</p>
           </div>
         </div>
 
-        <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-700">
-          <div className="flex flex-wrap gap-4 mb-6">
+        <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-700 print:hidden" data-html2canvas-ignore="true">
+          <div className="flex flex-wrap items-center gap-4 mb-6">
             <button
               onClick={handleGenerateScript}
               disabled={isGeneratingScript}
@@ -198,6 +243,14 @@ ${count > 1 ? `هذه هي الصورة رقم ${i + 1} من سلسلة كارو
               {isGeneratingScript ? <Loader2 className="animate-spin" size={18} /> : <FileText size={18} />}
               توليد اسكريبت ريلز (كتابي)
             </button>
+            <select
+              value={scriptModel}
+              onChange={(e) => setScriptModel(e.target.value)}
+              className="px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+            >
+              <option value="gemini-3-flash-preview">Gemini 3 Flash (سريع ومجاني)</option>
+              <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (احترافي ومجاني)</option>
+            </select>
           </div>
 
           <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4">
@@ -233,16 +286,33 @@ ${count > 1 ? `هذه هي الصورة رقم ${i + 1} من سلسلة كارو
               </div>
 
               {idea.format.includes('كاروسيل') && (
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">عدد صور الكاروسيل</label>
-                  <input 
-                    type="number" 
-                    min="2" max="10"
-                    value={carouselCount}
-                    onChange={(e) => setCarouselCount(parseInt(e.target.value) || 2)}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                  />
-                </div>
+                <>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">أبعاد الصورة</label>
+                    <select 
+                      value={aspectRatio}
+                      onChange={(e) => setAspectRatio(e.target.value)}
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all"
+                    >
+                      <option value="1:1">مربع (1:1)</option>
+                      <option value="3:4">عمودي (3:4)</option>
+                      <option value="4:3">أفقي (4:3)</option>
+                      <option value="9:16">ستوري/ريلز (9:16)</option>
+                      <option value="16:9">يوتيوب/شاشة (16:9)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">عدد صور الكاروسيل</label>
+                    <input 
+                      type="number" 
+                      min="2" max="10"
+                      value={carouselCount}
+                      onChange={(e) => setCarouselCount(parseInt(e.target.value) || 2)}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                </>
               )}
 
               <div className="space-y-2 sm:col-span-2">
@@ -299,6 +369,27 @@ ${count > 1 ? `هذه هي الصورة رقم ${i + 1} من سلسلة كارو
                   </div>
                 )}
               </div>
+              <div className="space-y-2 sm:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">تعليمات إضافية للصورة (اختياري)</label>
+                <textarea 
+                  value={customImagePrompt}
+                  onChange={(e) => setCustomImagePrompt(e.target.value)}
+                  placeholder="مثال: أريد أن تظهر القهوة على طاولة خشبية مع إضاءة شمس دافئة..."
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-white resize-none h-20"
+                />
+              </div>
+              
+              <div className="space-y-2 sm:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">نموذج توليد الصور</label>
+                <select
+                  value={imageModel}
+                  onChange={(e) => setImageModel(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                >
+                  <option value="gemini-2.5-flash-image">نانو بنانا 1 (مجاني وسريع)</option>
+                  <option value="gemini-3.1-flash-image-preview">نانو بنانا 2 (جودة عالية - يتطلب مفتاح API مدفوع)</option>
+                </select>
+              </div>
             </div>
 
             <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
@@ -321,20 +412,21 @@ ${count > 1 ? `هذه هي الصورة رقم ${i + 1} من سلسلة كارو
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="mt-6 overflow-hidden"
+              className="mt-6 overflow-hidden print:mt-4"
             >
-              <div className="bg-slate-800 dark:bg-slate-900 text-slate-100 dark:text-slate-300 p-6 rounded-2xl relative">
+              <div className="bg-slate-800 dark:bg-slate-900 text-slate-100 dark:text-slate-300 p-6 rounded-2xl relative print:bg-white print:text-black print:border print:border-slate-200 print:p-4">
                 <button 
-                  onClick={() => setScript('')}
-                  className="absolute top-4 left-4 p-1.5 bg-slate-700 dark:bg-slate-800 hover:bg-slate-600 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-300 dark:text-slate-400"
+                  onClick={() => onScriptChange && onScriptChange('')}
+                  data-html2canvas-ignore="true"
+                  className="absolute top-4 left-4 p-1.5 bg-slate-700 dark:bg-slate-800 hover:bg-slate-600 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-300 dark:text-slate-400 print:hidden"
                 >
                   <X size={16} />
                 </button>
-                <h4 className="text-lg font-bold mb-4 flex items-center gap-2 text-indigo-300 dark:text-indigo-400">
+                <h4 className="text-lg font-bold mb-4 flex items-center gap-2 text-indigo-300 dark:text-indigo-400 print:text-indigo-700">
                   <FileText size={20} />
                   اسكريبت الريلز
                 </h4>
-                <div className="markdown-body text-sm leading-relaxed prose prose-invert max-w-none">
+                <div className="markdown-body text-sm leading-relaxed prose prose-invert max-w-none print:prose-slate">
                   <Markdown>{script}</Markdown>
                 </div>
               </div>
@@ -349,24 +441,26 @@ ${count > 1 ? `هذه هي الصورة رقم ${i + 1} من سلسلة كارو
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="mt-6 overflow-hidden"
+              className="mt-6 overflow-hidden print:mt-4 print:break-inside-avoid"
             >
-              <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-2xl relative border border-slate-200 dark:border-slate-700">
+              <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-2xl relative border border-slate-200 dark:border-slate-700 print:bg-white print:border-slate-200">
                 <button 
-                  onClick={() => setImageUrls([])}
-                  className="absolute top-4 left-4 p-1.5 bg-white dark:bg-slate-700 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600 rounded-lg transition-colors text-slate-600 dark:text-slate-300 z-10"
+                  onClick={() => onImageUrlsChange && onImageUrlsChange([])}
+                  data-html2canvas-ignore="true"
+                  className="absolute top-4 left-4 p-1.5 bg-white dark:bg-slate-700 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-600 rounded-lg transition-colors text-slate-600 dark:text-slate-300 z-10 print:hidden"
                 >
                   <X size={16} />
                 </button>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8 print:mt-2">
                   {imageUrls.map((url, i) => (
                     <div key={i} className="flex flex-col items-center">
-                      <img src={url} alt={`Generated ${i}`} className="max-w-full h-auto rounded-xl shadow-md" />
+                      <img src={url} alt={`Generated ${i}`} className="max-w-full h-auto rounded-xl shadow-md print:shadow-none" />
                       <a 
                         href={url} 
                         download={`post-image-${index + 1}-${i + 1}.png`}
-                        className="mt-3 px-4 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors text-sm font-medium shadow-sm w-full text-center"
+                        data-html2canvas-ignore="true"
+                        className="mt-3 px-4 py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors text-sm font-medium shadow-sm w-full text-center print:hidden"
                       >
                         تحميل الصورة {imageUrls.length > 1 ? i + 1 : ''}
                       </a>

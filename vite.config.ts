@@ -22,7 +22,3 @@ export default defineConfig(({mode}) => {
     },
   };
 });
-export default defineConfig({
-  base: '/Mohamed-Ali/',
-  // بقية الإعدادات
-})
